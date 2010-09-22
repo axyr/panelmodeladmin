@@ -32,7 +32,7 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 								//var_dump($childItem->searchableFields());
 								$childSearch = $this->getResultAssembly($childItem);
 								$link = Controller::join_links("admin",$this->url_segment,$child,"SearchForm") . $childSearch
-										.$rootObjectItem->ClassName.'__ID='.$rootObjectItem->ID;
+										.$rootObjectItem->ClassName.'ID='.$rootObjectItem->ID;
 								$childItems->push(new ArrayData(array(
 									'Class'		 => $child,
 									'Link'		 => $link,
