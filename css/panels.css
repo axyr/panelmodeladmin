@@ -1,0 +1,183 @@
+#LamPanels div.content{
+	padding:3px;	
+}
+div.Actions{
+	text-align:right;
+	width:100%;
+}
+
+#Form_ImportForm, #Form_SearchForm{
+
+	padding:5px;
+	
+}
+
+#Form_ImportForm div.field {
+	padding:3px;
+	
+}
+
+#Form_ImportForm_CsvFile{
+	float:right;	
+}
+
+#Form_ImportForm  .Actions{
+	padding:5px;
+
+}
+
+#left .middleColumn select{
+	height:20px;
+	
+}
+#Form_SearchForm input.text{
+	padding:3px;
+	margin:4px 0px;
+	float:right;	
+}
+#Form_SearchForm input.action, .fieldgroupField{
+	
+	float:right;
+}
+#Form_SearchForm label{
+	padding-top:4px!important;
+}
+/*body.SilverListAdmin #ResultTable_holder {
+	overflow:auto;
+}
+
+body.SilverListAdmin #right{
+	overflow:hidden !important;
+	
+}
+
+body.SilverListAdmin #right #ModelAdminPanel {
+	padding-bottom: 30px;
+}
+#left, #Form_EditForm{
+	overflow:scroll!important;
+	overflow-x:hidden!important;
+	
+}
+.ajaxActions, #right div.Actions {
+	bottom:5px;
+	position:absolute;
+	right:27px;
+	text-align:right;
+
+}*/
+
+
+
+
+form.actionparams{
+	background:#fff!important;	
+}
+ul.optionset input.text, ul.optionset label{
+	font-size:11px!important;
+	padding:2px;
+}
+ul.optionset input{
+	border:1px solid #ccc!important;	
+}
+
+#ProgressBarHolder{
+	display:none;
+}
+#ProgressBarText p{
+	text-align:center;
+}
+#ProgressBar{
+	
+}
+#ProgressBar div{
+	height:18px;
+	margin:1px;
+}
+
+
+#left h2{
+	cursor:pointer;
+}
+
+
+#left h2 span{
+	display:block;
+	float:right;
+	width:15px;
+	height:15px;
+	
+}
+#left h2 span.open{
+	
+}
+th.PreviewLink, th.EditLink{
+		width:15px!important;
+}
+
+body.ModelAdmin .modelpanelsearch form div.field.hidden {
+	display:none;
+}
+/*some dirty ie7 hackes*/
+
+html>body #left h2 span{
+	*margin-top:-15px;
+}
+html>body input.action {
+	*padding:3px 5px 3px 22px!important;
+}
+html>body ul.optionset li.action input {
+	*padding:3px 5px 3px 22px!important;
+	*border:1px solid #99BBE8!important;
+}
+
+html>body ul.optionset li input{
+	*border:none!important;
+}
+
+ul.modeladminmenu li{
+	padding:0px 0px 0px 20px;
+	
+	cursor:pointer;
+}
+ul.modeladminmenu li a, ul.modeladminmenu li a:hover{
+	line-height:22px;
+	padding:2px 0px 0px 20px;
+	text-decoration:none;
+	outline:none;
+	font-size:11px;
+	color:#111111;
+	background-color:none;
+}
+ul.modeladminmenu li.root{
+	padding:0px;
+	background: url("../images/root.png") no-repeat;
+}
+ul.modeladminmenu li.root a.root {
+	background:none;
+	
+}
+
+ul.collapsible li.folder, ul.collapsible li{
+	background: url("../images/plus.gif") no-repeat 0px 2px;
+}
+ul.collapsible li.folder.open, ul.collapsible li.open{
+	background: url("../images/minus.gif") no-repeat 0px 2px;
+}
+ul.collapsible li.folder ul li, ul.collapsible li ul li, ul.collapsible li ul li.open, ul.collapsible li.folder.open ul li{
+	background:none;
+}
+ul.modeladminmenu li.folder a, ul.modeladminmenu li a, ul.modeladminmenu li.folder.open ul li a, ul.modeladminmenu li.open ul li a{
+	background: url("../images/folder-closedfolder.png") no-repeat;
+}
+ul.modeladminmenu li.folder.open a, ul.modeladminmenu li.open a, ul.modeladminmenu li.folder a.open, ul.modeladminmenu li ul li.open a.open, ul.modeladminmenu li a.open{
+	background: url("../images/folder-openfolder.png") no-repeat;
+	
+}
+
+ul.modeladminmenu li a.loading{
+	background: url("../images/spinner.gif") no-repeat!important;
+}
+ul.modeladminmenu ul.hidden{
+	display:none;
+}
