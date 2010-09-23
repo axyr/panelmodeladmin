@@ -398,7 +398,11 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		if($this->tableField == 'TableField' || in_array($this->tableField, ClassInfo::subclassesFor('TableField'))){
 			$fields = $this->singleton->scaffoldFormFields(array('restrictFields' => $summaryFields));
 			foreach($fields as $f){
-				$formFields[$f->title] = $f->class;
+				$formFields[$f->name] = $f->class;
+			}
+			$labels = $this->singleton->fieldLabels();
+			foreach($summaryFields as $s){
+				$summaryFields[$s] = $labels[$s];
 			}
 			$tf = new $this->tableField(
 					$this->modelClass,
