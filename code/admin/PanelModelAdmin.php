@@ -265,6 +265,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	function ResultsForm($searchCriteria) {
 		$subClasses = ClassInfo::subclassesFor('TableListField');
 		unset($subClasses[array_search("TableField",$subClasses)]); // exclude TableField
+		unset($subClasses[array_search("ComplexTableField",$subClasses)]); // exclude ComplexTableField
 		if(($this->tableField && $this->tableField != 'TableListField' && !in_array($this->tableField, $subClasses)) || 
 			($this->singleton->hasMethod('ModelAdminResultsForm') && $this->singleton->ModelAdminResultsForm())){
 			return $this->getCustomResultsForm($searchCriteria);
