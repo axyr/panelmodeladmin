@@ -16,9 +16,8 @@
  *
  * @uses ModelAdmin, ModelAdminPanel
  * 
- * @author Martijn van Nieuwenhoven
- *
  * @package PanelModelAdmin
+ * @author Martijn van Nieuwenhoven
  */
  
 abstract class PanelModelAdmin extends ModelAdmin  {
@@ -40,7 +39,7 @@ abstract class PanelModelAdmin extends ModelAdmin  {
 	/**
 	 * Just for dev purposes, so I can change the name later eventualy
 	 */
-	static $module_folder = 'panelmodeladmin';
+	static $module_folder = 'panelmodeladmin'; 
 	
 	/**
 	 * Show the default ModelAdmin LeftPanel in a seperate tab.
@@ -180,9 +179,8 @@ abstract class PanelModelAdmin extends ModelAdmin  {
 	function init(){
 		parent::init();
 		Requirements::css($this->stat('module_folder').'/css/panels.css');
-		// will be combined or moved to the Panel files.
+		// will be combined later on
 		Requirements::javascript($this->stat('module_folder').'/javascript/PanelModelAdmin.js');
-		Requirements::javascript($this->stat('module_folder').'/javascript/ModelAdminSearchPanel.js');
 		Requirements::javascript($this->stat('module_folder').'/javascript/PanelModelAdminButtonActions.js');	
 		
 		Requirements::javascript('sapphire/thirdparty/jquery-ui/jquery-ui-1.8rc3.custom.js');
@@ -213,34 +211,211 @@ abstract class PanelModelAdmin extends ModelAdmin  {
 
 class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionController {
 	
+	/**
+	 * singleton DataObject instance
+	 */
 	protected $singleton;
-	protected $tableField;
+	
+	/**
+	 * The TableField class for the current object
+	 */
+	protected $tableFieldClass;
+	
+	/**
+	 * The parent DataObject class.
+	 * This is used in the CategoryMenuPanel.
+	 * Setting this here will return the correct ResultSet after a DetailForm action is performed
+	 */
 	protected $parentClass;
+	
+	/**
+	 * The total amount of items in the current ResultSet
+	 */
+	protected $resultsCount;
+	
+	/**
+	 * The current TableListField or subclass instance
+	 * We set this as variable, so we can set customisation across methods easier
+	 */
+	protected $tf;
 	
 	function __construct($parent, $model) {
 		parent::__construct($parent, $model);
-		$this->singleton	= singleton($this->modelClass);
-		$this->tableField	= $this->singleton->stat('admin_table_field');
-		$this->parentClass	= $this->singleton->stat('admin_parent_class');
+		$this->singleton		= singleton($this->modelClass);
+		$this->tableFieldClass	= $this->setTableFieldClass();		
+		$this->parentClass		= $this->singleton->stat('admin_parent_class');
+		$this->tf				= $this->getResultsTable();
+		$this->resultsCount		= $this->tf->TotalCount();
+		
 	}
 	
+	function setTableFieldClass(){
+		if($admin_table_field = $this->singleton->stat('admin_table_field')){
+			if($admin_table_field != 'TableListField' && !is_subclass_of($admin_table_field, 'TableListField')){
+				user_error(
+					"PanelModelAdmin_CollectionController::__construct(): 
+					$admin_table_field is not a valid TableListField or subclass", 
+					E_USER_ERROR
+				);	
+			}
+			return $this->singleton->stat('admin_table_field');
+		} else {
+			return $this->parentController->resultsTableClassName();
+		}
+	}
+	
+	/**
+	 * Overload Modeladmin::getResultsTable() to have more flexible permissions on ResultsTables
+	 * {@link setTableFieldPermissions()}
+	 */
+	function getResultsTable() {
+		
+		$searchCriteria = isset($this->request) ? $this->request->getVars() : array();
+		$summaryFields = $this->getResultColumns($searchCriteria);
+		
+		/*** TableField ***/
+		if($this->tableFieldClass == 'TableField' || in_array($this->tableFieldClass, ClassInfo::subclassesFor('TableField'))){
+			
+			$fields = $this->singleton->scaffoldFormFields(array('restrictFields' => $summaryFields));
+			foreach($fields as $f){
+				$formFields[$f->name] = $f->class;
+			}
+			$labels = $this->singleton->fieldLabels();
+			foreach($summaryFields as $s){
+				$summaryFields[$s] = $labels[$s];
+			}
+			$tf = new $this->tableFieldClass(
+					$this->modelClass,
+					$this->modelClass,
+					$summaryFields,
+					$formFields
+			);
+			if($this->parentClass){
+				$parentID = 0;
+				if(isset($this->request)){
+					$parentID = $this->request->requestVar($this->parentClass.'__ID');
+				}
+				$tf->setExtraData(array(
+					$this->parentClass.'ID' => $parentID
+				));
+			}
+			if($this->singleton->canCreate()){
+				$tf->showAddRow = true;
+			} else{
+				$tf->showAddRow = false;
+			}
+			$tf->setTransformationConditions($this->performCanEditTransformation($tf->Items(), $formFields));
+			
+		/*** ComplexTableField ***/
+		}elseif($this->tableFieldClass == 'ComplexTableField' || in_array($this->tableFieldClass, ClassInfo::subclassesFor('ComplexTableField'))){
+			$tf = new $this->tableFieldClass(
+					$this,
+					$this->modelClass,
+					$this->modelClass,
+					$summaryFields,
+					"getCMSFields_forPopup"
+			);
+		/*** TableListField ***/
+		}else{
+			$tf = new TableListField(
+				$this->modelClass,
+				$this->modelClass,
+				$summaryFields
+			);
+			$url = '<a href=\"' . $this->Link() . '/$ID/edit\">$value</a>';
+			$tf->setFieldFormatting(array_combine(array_keys($summaryFields), array_fill(0,count($summaryFields), $url)));
+		}
+		
+		/*** DataObjectManager ***/
+		// @TODO : make DOM work!
+		if($this->tableFieldClass == 'DataObjectManager' || in_array($this->tableFieldClass, ClassInfo::subclassesFor('DataObjectManager'))){
+			$filteredCriteria = $searchCriteria;
+			unset($filteredCriteria['ctf']);
+			unset($filteredCriteria['url']);
+			unset($filteredCriteria['action_search']);
+			$tf->setSourceFilter($filteredCriteria);
+		}
+		
+		$tf->setCustomQuery($this->getSearchQuery($searchCriteria));
+		$tf->setPageSize($this->parentController->stat('page_length'));
+		$tf->setPermissions($this->setTableFieldPermissions($tf->getPermissions()));
+		$tf->setShowPagination(true);
+		
+		if($tf->sourceItems()){
+			$tf->setCustomSourceItems($this->performCanViewOnEachItem($tf->sourceItems()));	
+		}
+		
+		// csv export settings (select all columns regardless of user checkbox settings in 'ResultsAssembly')
+		$exportFields = $this->getResultColumns($searchCriteria, false);
+		$tf->setFieldListCsv($exportFields);
+		
+		return $tf;
+	}
+	
+	/**
+	 * Set the permissions on ResultsTables
+	 * You can use canExport() and canPrint() in your DataObject in addition to the de default can methods.
+	 */
+	function setTableFieldPermissions($permissions = array()){
+		$permissions = array_merge(array('export', 'print', 'delete'), $permissions);
+		
+		if($this->singleton->hasMethod('canExport') && !$this->singleton->canExport()){
+			unset($permissions[array_search('export',$permissions)]);
+		}
+		if($this->singleton->hasMethod('canPrint') && !$this->singleton->canPrint()){
+			unset($permissions[array_search('print',$permissions)]);
+		}
+		if($this->singleton->hasMethod('canCreate') && !$this->singleton->canCreate()){
+			unset($permissions[array_search('add',$permissions)]);
+		}
+		return $permissions;
+	}
+	
+	//perform canView check on each item and remove the item
+	function performCanViewOnEachItem($sourceItems){
+		if($items = $sourceItems){
+			if($this->singleton->hasMethod('canPrint')){
+				foreach($items as $item){
+					if($item->canView() !== NULL  && !$item->canView()){
+						$items->remove($item);
+					}			
+				}
+			}
+			return $items;	
+		}
+	}
+	
+	function performCanEditTransformation($fields, $formFields){
+		if($items = $fields){
+			if($this->singleton->hasMethod('canPrint')){
+				$conditions = array();
+				foreach($items as $item){
+					if(!$item->canEdit()){					
+						foreach($formFields as $field => $title){
+							$conditions[$field] = array(
+								"rule" => '!$canEdit()',
+								"transformation" => "performDisabledTransformation"							  
+							);
+						}
+					}
+				}
+				return $conditions;
+			}
+		}
+	}
 	
 	function search($request, $form) {
 		// Get the results form to be rendered
 		$resultsForm = $this->ResultsForm(array_merge($form->getData(), $request));
-		// Before rendering, let's get the total number of results returned.
-		// mvn edit : much cleaner, instead of calling the TableFieldbyName, and we can add the resultsTableField in a tab
-		if($tableField = $this->getResultsTable($request)){
-			$numResults = $tableField->TotalCount();
-		}
+		
 		if(is_a($resultsForm,'Form')){
-			if($numResults) {
+			if($this->resultsCount) {
 				return new SS_HTTPResponse(
 					$resultsForm->forTemplate(), 
 					200, 
 					sprintf(
 						_t('ModelAdmin.FOUNDRESULTS',"Your search found %s matching items"), 
-						$numResults
+						$this->resultsCount
 					)
 				);
 			} else {
@@ -256,19 +431,14 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	}
 	
 	/**
-
 	 * If the DataObjects admin_table_field is a not a (subclass of) TableListField
 	 * or the DataObject has a custom ModelAdminResultsForm set, create a CustomResultsForm
 	 * else proceed as normal, by calling the ModelAdmin's ResultsForm
 	 * Add a createNew Button in case the ModalAdminPanel is disabled
 	 */
 	function ResultsForm($searchCriteria) {
-		$subClasses = ClassInfo::subclassesFor('TableListField');
-		unset($subClasses[array_search("TableField",$subClasses)]); // exclude TableField
-		unset($subClasses[array_search("ComplexTableField",$subClasses)]); // exclude ComplexTableField
-		if(($this->tableField && $this->tableField != 'TableListField' && !in_array($this->tableField, $subClasses)) || 
-			($this->singleton->hasMethod('ModelAdminResultsForm') && $this->singleton->ModelAdminResultsForm())){
-			return $this->getCustomResultsForm($searchCriteria);
+		if($form = $this->getCustomResultsForm($searchCriteria)){
+			return $form;
 		} else {
 			$form = parent::ResultsForm($searchCriteria);				
 			$form->Actions()->push(new FormAction("createNew",  _t('ModelAdmin.ADDBUTTON', "Add"), $form));
@@ -281,80 +451,78 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	 * @TODO make this more solid
 	 */
 	function getCustomResultsForm($searchCriteria){
-		$rf = NULL; // nasty default to distinguage the ModelAdminResultsForm and the scaffolded one
 	
 		if($this->singleton->hasMethod('ModelAdminResultsForm') && $this->singleton->ModelAdminResultsForm()){
-			$rf = $this->singleton->ModelAdminResultsForm(); // return the customized TableField
+			$resultsForm = $this->singleton->ModelAdminResultsForm();
+			
+			if(is_a($resultsForm, 'FormField')){
+				$fields = new FieldSet(
+					$resultsForm
+				);
+			} elseif(is_a($resultsForm, 'FieldSet')){
+				$fields = $resultsForm;
+			} else {
+				return $resultsForm; // return raw ModelAdminResultsForm
+			}
 		} else { 
-			$tf = $this->scaffoldTableField($searchCriteria); // scaffold the TableField or CTF		
-		}
-		if(isset($tf)){
+
 			$fields = new FieldSet(
 				new TabSet(
 					$name = "ResultsTabSet",
 					new Tab(
 						$title= $this->singleton->plural_name(),
-						$tf
+						$this->tf
 					)
 				)				
 			);
-		} else {
-			$tf = $rf;	
-			if(is_a($tf, 'FormField')){
-				$fields = new FieldSet(
-						$tf
-				);
-			} elseif(is_a($tf, 'FieldSet')){
-				$fields = $tf;
-			}
 		}
+	
+		$form = new Form(
+			$this,
+			'ResultsForm',
+			$fields,
+			$actions = new FieldSet(
+				new FormAction("goBack", _t('ModelAdmin.GOBACK', "Back")),
+				new FormAction("goForward", _t('ModelAdmin.GOFORWARD', "Forward"))
+			)
+		);
 		
-		if(isset($fields)){
-			$form = new Form(
-				$this,
-				'ResultsForm',
-				$fields,
-				$actions = new FieldSet(
-					new FormAction("goBack", _t('ModelAdmin.GOBACK', "Back")),
-					new FormAction("goForward", _t('ModelAdmin.GOFORWARD', "Forward"))
+		if(isset($this->request) && $this->parentClass){
+			$fields->push(
+				new HiddenField($this->parentClass.'__ID',$this->parentClass.'__ID', 
+					$this->request->requestVar($this->parentClass.'__ID')
 				)
 			);
-			
-			if(isset($this->request) && $this->parentClass){
-				$fields->push(
-					new HiddenField($this->parentClass.'__ID',$this->parentClass.'__ID', 
-						$this->request->requestVar($this->parentClass.'__ID')
-					)
-				);
-			}
-			
-			/** 
-			 * Set searchCriteria so the returned form will obey the selections
-			 * On TableField we need a dirty HiddenField, to return to correct selection after save
-			 * On CTF we need a filter URL to get the correct selection after closing the popup
-			 */
-			$filter = '';
-			$filteredCriteria = $searchCriteria;
-			
-			if(is_a($tf, 'TableField')){
-				$fields->push(new HiddenField("searchCriteria", "searchCriteria", http_build_query($searchCriteria)));
-				if($this->singleton->canEdit() || $this->singleton->canCreate()){
-					$actions->push(new FormAction("doSave", _t('ModelAdmin.SAVE', "Save"), $form));
-				}
-			}elseif(is_a($tf, 'DataObjectManager')){
-				$filter = '';
-			}else{
-				unset($filteredCriteria['ctf']);
-				unset($filteredCriteria['url']);
-				unset($filteredCriteria['action_search']);
-				$filter = '?' . http_build_query($filteredCriteria);	
-			}
-			
-			$form->setFormAction($this->parentController->Link() . $this->modelClass . '/ResultsForm' . $filter);
-			return $form;
-		} else{
-			return $tf;	
 		}
+		
+		/** 
+		 * Set searchCriteria so the returned form will obey the selections
+		 * On TableField we need a dirty HiddenField, to return to correct selection after save
+		 * On CTF we need a filter URL to get the correct selection after closing the popup
+		 */
+		$filter = '';
+		$filteredCriteria = $searchCriteria;
+		
+		if(is_a($this->tf, 'TableField')){
+			$fields->push(new HiddenField("searchCriteria", "searchCriteria", http_build_query($searchCriteria)));
+			if($this->singleton->canEdit() || $this->singleton->canCreate()){
+				$actions->push(new FormAction("doSave", _t('ModelAdmin.SAVE', "Save"), $form));
+			}
+		}elseif(is_a($this->tf, 'DataObjectManager')){
+			$filter = '';
+		}else{
+			unset($filteredCriteria['ctf']);
+			unset($filteredCriteria['url']);
+			unset($filteredCriteria['action_search']);
+			$filter = '?' . http_build_query($filteredCriteria);	
+		}
+		if(!is_a($this->tf, 'TableField')){
+			if($this->singleton->canCreate()){
+				$form->Actions()->push(new FormAction("createNew",  _t('ModelAdmin.ADDBUTTON', "Add"), $form));	
+			}
+		}
+		$form->setFormAction($this->parentController->Link() . $this->modelClass . '/ResultsForm' . $filter);
+		return $form;
 	}
 	
 	/**
@@ -383,95 +551,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 			parse_str($data['searchCriteria'], $searchCriteria);
 		}
 		
-		return $this->getCustomResultsForm($searchCriteria)->forAjaxTemplate();
-	}
-	
-	/**
-	 * Scaffolds a TableField, CTF or DataObjectManager
-	 * The method will take the DataObject's static $summary_fields to display the editable fields.
-	 * You can set a different set of editable fields in static $table_admin_table_fields.
-	 * @TODO : overload $summary_fields method and make this more tidy.
-	 * @TODO : test FileDataObjectManager and ImageDataObjectManager
-	 */
-	function scaffoldTableField($searchCriteria){
-		
-		$summaryFields	= $this->getResultColumns($searchCriteria);
-		if($this->tableField == 'TableField' || in_array($this->tableField, ClassInfo::subclassesFor('TableField'))){
-			$fields = $this->singleton->scaffoldFormFields(array('restrictFields' => $summaryFields));
-			foreach($fields as $f){
-				$formFields[$f->name] = $f->class;
-			}
-			$labels = $this->singleton->fieldLabels();
-			foreach($summaryFields as $s){
-				$summaryFields[$s] = $labels[$s];
-			}
-			$tf = new $this->tableField(
-					$this->modelClass,
-					$this->modelClass,
-					$summaryFields,
-					$formFields
-			);
-			if($this->parentClass){
-				$parentID = 0;
-				if(isset($this->request)){
-					$parentID = $this->request->requestVar($this->parentClass.'__ID');
-				}
-				$tf->setExtraData(array(
-					$this->parentClass.'ID' => $parentID
-				));
-			}
-			$tf->showAddRow = true;
-		
-		} else if($this->tableField == 'ComplexTableField' || in_array($this->tableField, ClassInfo::subclassesFor('ComplexTableField'))){
-			$tf = new $this->tableField(
-					$this,
-					$this->modelClass,
-					$this->modelClass,
-					$summaryFields,
-					"getCMSFields_forPopup"
-			);
-		} 
-		// @TODO : make DOM work!
-		if($this->tableField == 'DataObjectManager' || in_array($this->tableField, ClassInfo::subclassesFor('DataObjectManager'))){
-			$filteredCriteria = $searchCriteria;
-			unset($filteredCriteria['ctf']);
-			unset($filteredCriteria['url']);
-			unset($filteredCriteria['action_search']);
-			$tf->setSourceFilter($filteredCriteria);
-		}
-		if(isset($tf)){
-			$tf->setCustomQuery($this->getSearchQuery($searchCriteria));
-			$tf->setPageSize($this->parentController->stat('page_length'));
-			$tf->setPermissions($this->setTableFieldPermissions());
-			$tf->setShowPagination(true);
-			return $tf;
-		}
-	}
-	
-	/**
-	 * Overload Modeladmin::getResultsTable() to have more flexible permissions on ResultsTables
-	 * {@link setTableFieldPermissions()}
-	 */
-	function getResultsTable($searchCriteria) {
-		$tf = parent::getResultsTable($searchCriteria);	
-		$tf->setPermissions($this->setTableFieldPermissions());
-		return $tf;
-	}
-	
-	/**
-	 * Set the permissions on ResultsTables
-	 * You can use canExport() and canPrint() in your DataObject in addition to the de default can methods.
-	 */
-	function setTableFieldPermissions(){
-		$permissions = array_merge(array('export', 'print'), TableListField::permissions_for_object($this->modelClass));
-		
-		if($this->singleton->hasMethod('canExport') && !$this->singleton->canExport()){
-			unset($permissions[array_search('export',$permissions)]);
-		}
-		if($this->singleton->hasMethod('canPrint') && !$this->singleton->canPrint()){
-			unset($permissions[array_search('print',$permissions)]);
-		}
-		return $permissions;
+		return $this->ResultsForm($searchCriteria)->forAjaxTemplate();
 	}
 }
 
