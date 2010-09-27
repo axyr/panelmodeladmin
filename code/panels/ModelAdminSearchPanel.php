@@ -6,6 +6,10 @@ class ModelAdminSearchPanel extends ModelAdminPanel{
 	
 	static $hide_column_select	= false;
 	
+	function init(){
+		Requirements::javascript($this->stat('module_folder').'/javascript/ModelAdminSearchPanel.js');	
+	}
+	
 	function ModelForms(){
 		$forms  = new DataObjectSet();
 		foreach($this->getManagedModels() as $key => $object){ 
