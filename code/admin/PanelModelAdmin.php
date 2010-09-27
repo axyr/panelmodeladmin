@@ -374,7 +374,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		if($items = $sourceItems){
 			if($this->singleton->hasMethod('canView')){
 				foreach($items as $item){
-					if($item->canView() !== NULL  && !$item->canView()){
+					if(!$item->canView()){
 						$items->remove($item);
 					}			
 				}
