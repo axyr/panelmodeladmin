@@ -12,6 +12,10 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 		parent::__construct($title, $state, $models);
 	}
 	
+	function init(){
+		Requirements::javascript($this->stat('module_folder').'/javascript/ModelAdminMenuPanel.js');	
+	}
+	
 	function Menu(){
 		$rootitems = new DataObjectSet();
 		
