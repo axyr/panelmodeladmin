@@ -244,8 +244,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		$this->singleton		= singleton($this->modelClass);
 		$this->tableFieldClass	= $this->setTableFieldClass();		
 		$this->parentClass		= $this->singleton->stat('admin_parent_class');
-		$this->tf				= $this->getResultsTable();
-		$this->resultsCount		= $this->tf->TotalCount();
+		$this->resultsCount		= 0;
 		
 	}
 	
@@ -268,9 +267,8 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	 * Overload Modeladmin::getResultsTable() to have more flexible permissions on ResultsTables
 	 * {@link setTableFieldPermissions()}
 	 */
-	function getResultsTable() {
+	function getResultsTable($searchCriteria) {
 		
-		$searchCriteria = isset($this->request) ? $this->request->getVars() : array();
 		$summaryFields = $this->getResultColumns($searchCriteria);
 		
 		/*** TableField ***/
@@ -374,7 +372,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	//perform canView check on each item and remove the item
 	function performCanViewOnEachItem($sourceItems){
 		if($items = $sourceItems){
-			if($this->singleton->hasMethod('canPrint')){
+			if($this->singleton->hasMethod('canView')){
 				foreach($items as $item){
 					if($item->canView() !== NULL  && !$item->canView()){
 						$items->remove($item);
@@ -387,7 +385,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	
 	function performCanEditTransformation($fields, $formFields){
 		if($items = $fields){
-			if($this->singleton->hasMethod('canPrint')){
+			if($this->singleton->hasMethod('canEdit')){
 				$conditions = array();
 				foreach($items as $item){
 					if(!$item->canEdit()){					
@@ -407,6 +405,9 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	function search($request, $form) {
 		// Get the results form to be rendered
 		$resultsForm = $this->ResultsForm(array_merge($form->getData(), $request));
+		if($this->tf){
+			$this->resultsCount		= $this->tf->TotalCount();
+		}
 		
 		if(is_a($resultsForm,'Form')){
 			if($this->resultsCount) {
@@ -465,7 +466,9 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 				return $resultsForm; // return raw ModelAdminResultsForm
 			}
 		} else { 
-
+			if($searchCriteria instanceof SS_HTTPRequest) $searchCriteria = $searchCriteria->getVars();
+			$this->tf = $this->getResultsTable($searchCriteria);
+			
 			$fields = new FieldSet(
 				new TabSet(
 					$name = "ResultsTabSet",
