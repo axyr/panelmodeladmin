@@ -335,13 +335,12 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		}
 		
 		$tf->setCustomQuery($this->getSearchQuery($searchCriteria));
-		$tf->setPageSize($this->parentController->stat('page_length'));
-		$tf->setPermissions($this->setTableFieldPermissions($tf->getPermissions()));
-		$tf->setShowPagination(true);
-		
 		if($tf->sourceItems()){
 			$tf->setCustomSourceItems($this->performCanViewOnEachItem($tf->sourceItems()));	
 		}
+		$tf->setPageSize($this->parentController->stat('page_length'));
+		$tf->setPermissions($this->setTableFieldPermissions($tf->getPermissions()));
+		$tf->setShowPagination(true);
 		
 		// csv export settings (select all columns regardless of user checkbox settings in 'ResultsAssembly')
 		$exportFields = $this->getResultColumns($searchCriteria, false);
