@@ -472,7 +472,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 				new TabSet(
 					$name = "ResultsTabSet",
 					new Tab(
-						$title= $this->singleton->plural_name(),
+						$title= $this->singleton->i18n_plural_name(),
 						$this->tf
 					)
 				)				
