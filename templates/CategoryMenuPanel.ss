@@ -5,7 +5,7 @@
 			<% if Children %>
 				<ul class="modeladminmenu">
 					<% control Children %>
-						<li class="$Class folder"><a href="$Link">$Title</a>
+						<li class="$Class<% if Children %> folder<% end_if %>"><a href="$Link">$Title</a>
 							<% if Children %>
 								<ul class="modeladminmenu hidden">
 									<% control Children %>
