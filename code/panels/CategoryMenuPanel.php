@@ -20,8 +20,12 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 		$rootitems = new DataObjectSet();
 		
 		$rootObjectItems = NULL;
-		
-		foreach($this->getManagedModels() as $object => $childs){
+		$models = $this->getManagedModels();
+		//check if there are childitems, otherwise just return a list
+		if(array_key_exists(0,$models)){
+			$models[$models[0]] = array();
+		}
+		foreach($models as $object => $childs){
 			if(class_exists($object)){
 				
 				if($rootObjects = DataObject::get($object)){
@@ -46,7 +50,7 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 						}
 						
 						$rootObjectItems->push(new ArrayData(array(
-							'Class'		=> $object,
+							'Class'		=> (($childs) ? $object . ' folder' : $object),
 							'Link'		=> Controller::join_links("admin",$this->url_segment,$object,$rootObjectItem->ID,"edit"),
 							'Title'		=> $rootObjectItem->Title,
 							'Children'	=> $childItems
