@@ -26,7 +26,7 @@ class ModelAdminMenuPanel extends ModelAdminPanel {
 				$items->push(new ArrayData(array(
 					'Class'		=> $object,
 					'Link'		=> Controller::join_links("admin",$this->url_segment,$object,"SearchForm") . $search,
-					'Title'		=> $sgn->plural_name()
+					'Title'		=> $sgn->i18n_plural_name()
 				)));
 			}
 		}

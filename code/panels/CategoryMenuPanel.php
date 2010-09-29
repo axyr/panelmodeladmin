@@ -43,7 +43,7 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 								$childItems->push(new ArrayData(array(
 									'Class'		 => $child,
 									'Link'		 => $link,
-									'Title'		 => $childItem->plural_name()
+									'Title'		 => $childItem->i18n_plural_name()
 								)));
 							}					
 						}
@@ -62,7 +62,7 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 				$rootitems->push(new ArrayData(array(
 					'Class'		=> $object,
 					'Link'		=> Controller::join_links("admin",$this->url_segment,$object,"SearchForm") . $rootSearch,
-					'Title'		=> $rootItem->plural_name(),
+					'Title'		=> $rootItem->i18n_plural_name(),
 					'Children'	=> $rootObjectItems
 				)));
 			}
