@@ -26,7 +26,7 @@ class CategoryMenuPanel extends ModelAdminMenuPanel{
 			$models[$models[0]] = array();
 		}
 		foreach($models as $object => $childs){
-			if(class_exists($object)){
+			if(class_exists($object)){ 
 				
 				if($rootObjects = DataObject::get($object)){
 					
