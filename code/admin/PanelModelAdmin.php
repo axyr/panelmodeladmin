@@ -238,6 +238,13 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	 * We set this as variable, so we can set customisation across methods easier
 	 */
 	protected $tf;
+
+	/**
+	 * Add sortable handler to TableFields
+	 * Activate this with adding 'Sort'	=> 'Int' or 'SortOrder'	=> 'Int' to the DataObject $db array
+	 * Exclude DOM, it has its own Sortable method
+	 */
+	protected $DOSortField = '';
 	
 	function __construct($parent, $model) {
 		parent::__construct($parent, $model);
@@ -245,6 +252,18 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		$this->tableFieldClass	= $this->setTableFieldClass();		
 		$this->parentClass		= $this->singleton->stat('admin_parent_class');
 		$this->resultsCount		= 0;
+		if($this->tableFieldClass != 'DataObjectManager' && !in_array($this->tableFieldClass, ClassInfo::subclassesFor('DataObjectManager')) &&
+			$this->tableFieldClass != 'TableField' && !in_array($this->tableFieldClass, ClassInfo::subclassesFor('TableField'))){
+			if($this->singleton->hasDatabaseField('Sort')){
+				$this->DOSortField = 'Sort';
+			}elseif($this->singleton->hasDatabaseField('SortOrder')){
+				$this->DOSortField = 'SortOrder';
+			}
+			if($this->singleton->hasMethod('canSort') && !$this->singleton->canSort()){
+				$this->DOSortField = ''; 
+			}
+		
+		}
 		
 	}
 	
@@ -270,6 +289,9 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	function getResultsTable($searchCriteria) {
 		
 		$summaryFields = $this->getResultColumns($searchCriteria);
+		if($this->DOSortField){
+			$summaryFields['Sort'] = '';
+		}
 		
 		/*** TableField ***/
 		if($this->tableFieldClass == 'TableField' || in_array($this->tableFieldClass, ClassInfo::subclassesFor('TableField'))){
@@ -282,6 +304,7 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 			foreach($summaryFields as $s){
 				$summaryFields[$s] = $labels[$s];
 			}
+			
 			$tf = new $this->tableFieldClass(
 					$this->modelClass,
 					$this->modelClass,
@@ -345,6 +368,18 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		// csv export settings (select all columns regardless of user checkbox settings in 'ResultsAssembly')
 		$exportFields = $this->getResultColumns($searchCriteria, false);
 		$tf->setFieldListCsv($exportFields);
+
+		if($this->DOSortField){
+			$filteredCriteria = $searchCriteria;
+			//unset($filteredCriteria['ctf']);
+			unset($filteredCriteria['url']);
+			unset($filteredCriteria['action_search']);
+			$link = $this->parentController->Link().$this->modelClass.'/order?'.http_build_query($filteredCriteria);
+
+			$fieldFormatting = $tf->fieldFormatting;
+			$sortFormatting = array("Sort" => '<a class=\"drag\" href=\"'.$link.'\"><img src=\"panelmodeladmin/images/drag.png\" /></a>');
+			$tf->setFieldFormatting(array_merge($fieldFormatting,$sortFormatting));
+		}
 		
 		return $tf;
 	}
@@ -524,6 +559,11 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 			}
 		}
 		$form->setFormAction($this->parentController->Link() . $this->modelClass . '/ResultsForm' . $filter);
+		
+		if($this->DOSortField){
+			$form->addExtraClass('sortable');
+		}
+		
 		return $form;
 	}
 	
@@ -555,97 +595,27 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		
 		return $this->ResultsForm($searchCriteria)->forAjaxTemplate();
 	}
+	
+	function order($request){
+		if($ids = $request->postVar('ids')){
+			$i = 0;
+			if($ctf = $request->getVar('ctf')){ // set $i to correct pagination position of the TF
+				$i = $ctf[$this->modelClass]['start'];
+			}
+			foreach($ids as $id){
+				$item = DataObject::get_by_id($this->modelClass,$id);
+				$item->{$this->DOSortField} = $i++;
+				$item->write();
+				
+			}
+		}
+		// Set searchCriteria so the returned form will obey the selections
+		if($request instanceof SS_HTTPRequest) $searchCriteria = $request->getVars();
+		unset($searchCriteria['ids']);
+		return $this->ResultsForm($searchCriteria)->forAjaxTemplate();
+	}
 }
 
 class PanelModelAdmin_RecordController extends ModelAdmin_RecordController{
 	
-/*	public function EditForm() {
-		if($this->request->getVar('admin_table_field')){
-			return $this->CustomEditForm();
-		}else{
-			return parent::EditForm();
-		}
-	}
-	
-	function CustomEditForm($model = NULL, $type = NULL){
-		$dataObject = $model ?  $model : $this->request->getVar('Model');
-		$fieldType = $type ?  $type : $this->request->getVar('admin_table_field');
-		$sng = singleton($dataObject);
-		$fields = $sng->scaffoldFormFields(array('restrictFields' => array('none'), 'tabbed' => true));
-	
-		$tfFields = $sng->scaffoldFormFields(array('restrictFields' => $sng->stat('summary_fields')));
-		$formFields = array();
-		foreach($tfFields as $f){
-			$formFields[$f->title] = $f->class;
-		}
-		
-		
-		
-		if($fieldType == 'TableField'){
-			$tf = new $fieldType(
-				$this->parentController->getModelClass(),
-				$sng->class,
-				$sng->stat('summary_fields'),
-				$formFields,
-				$this->parentController->getModelClass().'ID',
-				2
-			);		
-			$tf->setExtraData(array(
-				$this->parentController->getModelClass().'ID' => 2 
-			));
-		} else if($fieldType == 'ComplexTableField' || $fieldType == 'DataObjectManager'){// 
-			$tf = new $fieldType(
-					$this,
-					$sng->class,
-					$sng->class,
-					$sng->stat('summary_fields'),
-					"getCMSFields_forPopup",
-					$this->parentController->getModelClass().'ID'
-					
-			);	
-		} 
-		
-		$fields->addFieldToTab("Root.Main", $tf);
-		$fields->push(new HiddenField("ID"));
-		$fields->push(new HiddenField("TableField","TableField",$fieldType));
-		$fields->push(new HiddenField("Model","Model",$dataObject));
-		
-		$actions = new FieldSet(
-			new FormAction("doSave", _t('ModelAdmin.SAVE', "Save")),
-			new FormAction("goBack", _t('ModelAdmin.GOBACK', "Back"))
-		);
-
-		
-		$form = new Form($this, "EditForm", $fields, $actions);
-		$form->loadDataFrom($this->currentRecord);
-
-		return $form;
-	}
-	
-	function doSave($data, $form, $request) {
-		$form->saveInto($this->currentRecord);
-		if(isset($data['TableField']) && $data['TableField'] == 'TableField'){
-			
-		} else{
-			try {
-				$this->currentRecord->write();
-			} catch(ValidationException $e) {
-				$form->sessionMessage($e->getResult()->message(), 'bad');
-			}
-		}
-		if(isset($data['TableField']) && $data['TableField'] == 'TableField' && isset($data['Model'])){
-			if(Director::is_ajax()) {
-				return $this->CustomEditForm($data['Model'],$data['TableField'])->forAjaxTemplate();
-			} else {
-				Director::redirectBack();
-			}
-		} else {
-			if(Director::is_ajax()) {
-				return $this->edit($request);
-			} else {
-				Director::redirectBack();
-			}
-		}
-		
-	}	*/
 }

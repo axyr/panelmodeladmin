@@ -79,4 +79,44 @@
 		}, 'html');
 	}
 	
+	$("form.sortable table.data tbody.content").sortable();
+    $("form.sortable table.data tbody.content").disableSelection();
+
+	Behaviour.register({
+		'form.sortable': {
+			initialize: function(){
+				$(this).sortable({
+					axis:        'y',
+					containment: this,
+					cursor:      'move',
+					items:       'tbody tr',
+					handle:      'a.drag',
+					placeholder: 'ui-state-highlight',
+					start: function(event, ui) { 
+						//$(ui.item).addClass('selected');
+					},
+					update:      function(event, ui) {
+						$(this).sortable('disable');
+		
+						var ids = [];
+						
+						$(this).find('tbody tr').each(function() {
+							var $tr = $(this).attr('id');
+							var res = $tr.match(/record-[a-zA-Z0-9_]*-([0-9]+)/);
+		
+							if(res) ids.push(res[1]);
+						});
+						$.post($(ui.item).find('a.drag').attr('href'), { 'ids[]': ids },function(data){
+							$('#ModelAdminPanel').html(data);
+							//$(this).sortable('enable');
+							Behaviour.apply();
+						} 
+						);
+						
+					}
+				});
+			}
+		}
+	});
+	
 });})(jQuery);

@@ -181,3 +181,22 @@ ul.modeladminmenu li a.loading{
 ul.modeladminmenu ul.hidden{
 	display:none;
 }
+/*** Sortable ***/
+th.Sort{
+	width:18px;
+}
+a.drag{
+	cursor:move;
+}
+
+#ModelAdminPanel form.sortable table.data tr td.first{
+	width:100%!important;
+}
+
+#ModelAdminPanel form.sortable table.data tr.ui-state-highlight{
+	background:#FC0;
+	height:30px!important;
+	display:block!important;
+	
+}
+.ui-state-highlight { height: 1.5em; line-height: 1.2em; }
