@@ -1,4 +1,4 @@
 <?php
 
-//
-//added test string for svn test
+Object::add_extension('PanelModelAdmin', 'TranslatablePanelModelAdmin');
+Object::add_extension('PanelModelAdmin_CollectionController', 'TranslatablePanelModelAdmin_CollectionController');

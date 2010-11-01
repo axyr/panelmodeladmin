@@ -23,6 +23,11 @@
 abstract class PanelModelAdmin extends ModelAdmin  {
 	
 	/**
+	 * @var String $Locale
+	 */
+	public $Locale = NULL;
+	
+	/**
 	 * List of all sidebar panels for admin
 	 */
 	static $panels 			= array();
@@ -165,6 +170,9 @@ abstract class PanelModelAdmin extends ModelAdmin  {
 				'State'		=> $panel->PanelState()
 			)));
 		}
+		
+		$this->extend('updatePanels',$panels);
+		
 		return $panels;
 	}
 	
@@ -186,6 +194,21 @@ abstract class PanelModelAdmin extends ModelAdmin  {
 		Requirements::javascript('sapphire/thirdparty/jquery-ui/jquery-ui-1.8rc3.custom.js');
 		
 		Requirements::css('sapphire/thirdparty/jquery-ui-themes/smoothness/jquery-ui-1.8rc3.custom.css');
+		
+		Requirements::customScript("SiteTreeHandlers.controller_url = '" . $this->Link() . "';");
+		if($this->getRequest()->requestVar("Locale")) {
+			$this->Locale = $this->getRequest()->requestVar("Locale");
+		} elseif($this->getRequest()->requestVar("locale")) {
+			$this->Locale = $this->getRequest()->requestVar("locale");
+		} elseif(Session::get('Locale')){
+			$this->Locale = Session::get('Locale');
+		} else {
+			$this->Locale = Translatable::default_locale();
+		}
+		
+		Session::set('Locale', $this->Locale);
+		
+		Translatable::set_current_locale($this->Locale);
 	}
 	
 	
@@ -472,11 +495,16 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 	 * Add a createNew Button in case the ModalAdminPanel is disabled
 	 */
 	function ResultsForm($searchCriteria) {
+		
 		if($form = $this->getCustomResultsForm($searchCriteria)){
+			//$form->Fields()->insertFirst($this->LangSelector());
+			$form->Fields()->push(new HiddenField('Locale', null, $this->parentController->Locale));
 			return $form;
 		} else {
-			$form = parent::ResultsForm($searchCriteria);				
+			$form = parent::ResultsForm($searchCriteria);
+			//$form->Fields()->insertFirst($this->LangSelector());
 			$form->Actions()->push(new FormAction("createNew",  _t('ModelAdmin.ADDBUTTON', "Add"), $form));
+			$form->Fields()->push(new HiddenField('Locale', null, $this->parentController->Locale));
 			return $form;
 		}
 	}
@@ -614,8 +642,112 @@ class PanelModelAdmin_CollectionController extends ModelAdmin_CollectionControll
 		unset($searchCriteria['ids']);
 		return $this->ResultsForm($searchCriteria)->forAjaxTemplate();
 	}
+	
+	function getSearchQuery($searchCriteria) {	
+		$context = singleton($this->modelClass)->getDefaultSearchContext();
+		$context->addFilter(new ExactMatchFilter('Locale', $this->parentController->Locale));
+		return $context->getQuery($searchCriteria);
+	}
+	
+	function LangSelector() {
+		if(Object::has_extension($this->modelClass, 'Translatable')) {
+			$member = Member::currentUser(); //check to see if the current user can switch langs or not
+			if(Permission::checkMember($member, 'VIEW_LANGS')) {
+				$dropdown = new LanguageDropdownField(
+					'LangSelector', 
+					'Language', 
+					array(), 
+					$this->modelClass, 
+					'Locale-English'
+				);
+				$dropdown->setValue(Translatable::get_current_locale());
+				return $dropdown;
+	        }
+        
+	        //user doesn't have permission to switch langs so just show a string displaying current language
+	        return i18n::get_locale_name( Translatable::get_current_locale() );
+		}
+    }
+	
 }
 
 class PanelModelAdmin_RecordController extends ModelAdmin_RecordController{
 	
+	function EditForm() {
+		$form = parent::EditForm();
+		
+		if($this->currentRecord->hasExtension('Translatable')) {
+			$form->Fields()->push(new HiddenField('Locale', null, Session::get('Locale')));
+			/*// TODO Exclude languages which are already translated into 
+			$dropdown = new LanguageDropdownField(
+				'NewTransLang', 
+				_t('TranslatableModelAdmin.LANGDROPDOWNLABEL', 'Language'), 
+				array(), 
+				$this->currentRecord->class, 
+				'Locale-English'
+			);
+			$action = new InlineFormAction(
+				'createtranslation', 
+				_t('TranslatableModelAdmin.CREATETRANSBUTTON', 
+				"Create translation")
+			);
+			$header = new HeaderField(
+				'ExistingTransHeader', 
+				_t('TranslatableModelAdmin.EXISTINGTRANSTABLE', 'Existing Translations'),
+				4
+			);
+			// TODO Exclude the current language
+			$table = new TableListField(
+				'Translations',
+				$this->currentRecord->class
+			);
+			$table->setPermissions(array('show'));
+			if(!$sourceItems = $this->currentRecord->getTranslations()){
+				$sourceItems = new DataObjectSet();
+			}
+			$table->setCustomSourceItems($sourceItems);
+			$action->includeDefaultJS = false;
+			if($form->Fields()->hasTabSet()) {
+				$form->Fields()->findOrMakeTab(
+					'Root.Translations', 
+					_t("TranslatableModelAdmin.TRANSLATIONSTAB", "Translations")
+				);
+				$form->Fields()->addFieldToTab('Root.Translations', $header);
+				$form->Fields()->addFieldToTab('Root.Translations', $table);
+				$form->Fields()->addFieldToTab('Root.Translations', $dropdown);
+				$form->Fields()->addFieldToTab('Root.Translations', $action);
+			} else {
+				$form->Fields()->push(new HeaderField(
+					'TranslationsHeader',
+					_t("TranslatableModelAdmin.TRANSLATIONSTAB", "Translations")
+				));
+				$form->Fields()->push($header);
+				$form->Fields()->push($table);
+				$form->Fields()->push($dropdown);
+				$form->Fields()->push($action);
+			}*/
+			// TODO This is hacky, but necessary to get proper identifiers
+			//$form->Fields()->setForm($form);
+			
+		}
+		
+		return $form;
+	}
+	
+	/**
+	 * Create a new translation from an existing item, switch to this language and reload the tree.
+	 */
+	function createtranslation($data, $form, $edit) {
+			if($this->currentRecord->hasExtension('Translatable')) {
+			$langCode = Convert::raw2sql($_REQUEST['newlang']);
+	
+			Translatable::set_current_locale($langCode);
+			$translatedRecord = $this->currentRecord->createTranslation($langCode);
+	
+			$this->currentRecord = $translatedRecord;
+			
+			// TODO Return current language as GET parameter
+			return $this->edit(null);
+		}
+	}
 }

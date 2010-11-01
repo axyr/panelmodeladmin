@@ -1,6 +1,22 @@
 (function($){$(function(){ 	
 	
 	/**
+	 * Move Actions to AjaxActions and hide goBack and goForward buttons on initial load
+	 */
+	Behaviour.register({
+		'#LangSelector': {
+			initialize: function(){
+				$('select#LangSelector').change(function() {
+					//console.log(this.value);
+					document.location = SiteTreeHandlers.controller_url + '?locale=' + this.value;
+				});
+			}
+		}
+	});
+	
+	
+	
+	/**
 	 * This will create a url with data from the corresponding SearchForm of the Default DataObject.
 	 * Don't use live to ensure this is run first on initial load.
 	 */
