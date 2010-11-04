@@ -136,3 +136,15 @@
 	});
 	
 });})(jQuery);
+
+function statusMessage(msg, type, clearManually, container) {
+ var statusMessageEl = $('statusMessage');
+ if(container != null) statusMessageEl = container;
+ if(statusMessageEl) {
+ if(msg) {
+ //statusMessageEl.showMessage(msg, type, msg.length / 10, clearManually);
+ } else {
+ statusMessageEl.clearMessage();
+ }
+ }
+} 
