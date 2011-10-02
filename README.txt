@@ -39,4 +39,4 @@ static $searchable_fields = array(
 		
 	'SomeParentClassID'
 
-);
+); 
